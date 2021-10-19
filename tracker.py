@@ -284,27 +284,23 @@ class Tracker(object):
         if capture is not None:
             # use cv2 capture
             video_len = capture.get(cv2.CAP_PROP_FRAME_COUNT)
+            if video_len <= 0:
+                video_len = 200000
             logger.info("Length of the video: {} frames".format(video_len))
+            
             dataloader = range(round(video_len))
         for step_id, data in enumerate(dataloader):
             if capture != None:
                 ret, data = capture.read()
                 if not ret:
-                    frame_id += 1
-                    continue
+                    logger.info("Processing video end.")
+                    break
                 data_ = self.preprocess([data])
                 data_['ori_image'] = paddle.unsqueeze(paddle.to_tensor(data),axis=0)
                 for k in data_:
                     data_[k] = paddle.to_tensor(data_[k])
                 data = data_
-                # print(data)
-                # exit(0)
-                # print(data.shape)
-                # print(np.expand_dims(data, axis=0).shape)
-                # print(Image.fromarray(data))
-                # exit(0)
-                # data = {'image': paddle.unsqueeze(F.to_tensor(Image.fromarray(data)), axis=0)}
-                # data = {'image': F.to_tensor(Image.fromarray(np.array((data, )).astype('float32')))}
+                
             self.status['step_id'] = step_id
             if frame_id % 40 == 0:
                 logger.info('Processing frame {} ({:.2f} fps)'.format(
@@ -613,17 +609,20 @@ class Tracker(object):
         
         dataloader = create('TestMOTReader')(self.dataset, 0) if use_capture is False else None
         result_filename = os.path.join(result_root, '{}.txt'.format(seq))
-        if self.capture:
-                frame_rate = int(self.capture.get(cv2.CAP_PROP_FPS))
-                width = int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
-                height = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        elif frame_rate == -1: frame_rate = self.dataset.frame_rate
+        if frame_rate == -1:
+            if self.capture:
+                frame_rate = self.capture.get(cv2.CAP_PROP_FPS)
+                if frame_rate <= 0 or frame_rate > 1000:
+                    frame_rate = 25.01
+            else: frame_rate = self.dataset.frame_rate
         video_writer = None
         if save_videos and use_capture:
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             output_video_path = os.path.join(save_dir, '..',
                                              '{}_vis.mp4'.format(seq))
             logger.info('Save video in {}'.format(output_video_path))
+            width = int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
             video_writer = cv2.VideoWriter(output_video_path, fourcc, frame_rate, (width, height))
 
         with paddle.no_grad():
