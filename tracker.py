@@ -613,13 +613,11 @@ class Tracker(object):
         
         dataloader = create('TestMOTReader')(self.dataset, 0) if use_capture is False else None
         result_filename = os.path.join(result_root, '{}.txt'.format(seq))
-        if frame_rate == -1:
-            if self.capture:
+        if self.capture:
                 frame_rate = int(self.capture.get(cv2.CAP_PROP_FPS))
                 width = int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
                 height = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            else: frame_rate = self.dataset.frame_rate
-            
+        elif frame_rate == -1: frame_rate = self.dataset.frame_rate
         video_writer = None
         if save_videos and use_capture:
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
