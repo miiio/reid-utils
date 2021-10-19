@@ -22,8 +22,6 @@ import glob
 import paddle
 import numpy as np
 
-import yaml
-from PIL import Image
 from paddle.vision.transforms import functional as F
 from deploy.python.preprocess import preprocess, Resize, NormalizeImage, Permute, PadStride, LetterBoxResize
 
@@ -42,65 +40,6 @@ from ppdet.utils.logger import setup_logger
 logger = setup_logger(__name__)
 
 __all__ = ['Tracker']
-
-# Global dictionary
-SUPPORT_MODELS = {
-    'YOLO',
-    'RCNN',
-    'SSD',
-    'Face',
-    'FCOS',
-    'SOLOv2',
-    'TTFNet',
-    'S2ANet',
-    'JDE',
-    'FairMOT',
-    'DeepSORT',
-}
-class PredictConfig():
-    """set config of preprocess, postprocess and visualize
-    Args:
-        model_dir (str): root path of model.yml
-    """
-
-    def __init__(self, model_dir):
-        # parsing Yaml config for Preprocess
-        deploy_file = os.path.join(model_dir, 'infer_cfg.yml')
-        with open(deploy_file) as f:
-            yml_conf = yaml.safe_load(f)
-        self.check_model(yml_conf)
-        self.arch = yml_conf['arch']
-        self.preprocess_infos = yml_conf['Preprocess']
-        self.min_subgraph_size = yml_conf['min_subgraph_size']
-        self.labels = yml_conf['label_list']
-        self.mask = False
-        self.use_dynamic_shape = yml_conf['use_dynamic_shape']
-        if 'mask' in yml_conf:
-            self.mask = yml_conf['mask']
-        self.tracker = None
-        if 'tracker' in yml_conf:
-            self.tracker = yml_conf['tracker']
-        self.print_config()
-
-    def check_model(self, yml_conf):
-        """
-        Raises:
-            ValueError: loaded model not in supported model type 
-        """
-        for support_model in SUPPORT_MODELS:
-            if support_model in yml_conf['arch']:
-                return True
-        raise ValueError("Unsupported arch: {}, expect {}".format(yml_conf[
-            'arch'], SUPPORT_MODELS))
-
-    def print_config(self):
-        print('-----------  Model Configuration -----------')
-        print('%s: %s' % ('Model Arch', self.arch))
-        print('%s: ' % ('Transform Order'))
-        for op_info in self.preprocess_infos:
-            print('--%s: %s' % ('transform op', op_info['type']))
-        print('--------------------------------------------')
-
 class Tracker(object):
     def __init__(self, cfg, mode='eval'):
         self.cfg = cfg
@@ -113,8 +52,8 @@ class Tracker(object):
         self.dataset = cfg['{}MOTDataset'.format(self.mode.capitalize())]
         
         self.capture = None
-        self.pred_config = PredictConfig("output_inference/fairmot_dla34_30e_1088x608/")
-
+        self.pred_config_preprocess_infos =  [{'target_size': [608, 1088], 'type': 'LetterBoxResize'}, 
+                            {'is_scale': True, 'mean': [0, 0, 0], 'std': [1, 1, 1], 'type': 'NormalizeImage'}, {'type': 'Permute'}]
         # build model
         self.model = create(cfg.architecture)
 
@@ -249,7 +188,7 @@ class Tracker(object):
         return inputs
     def preprocess(self, image_list):
         preprocess_ops = []
-        for op_info in self.pred_config.preprocess_infos:
+        for op_info in self.pred_config_preprocess_infos:
             new_op_info = op_info.copy()
             op_type = new_op_info.pop('type')
             preprocess_ops.append(eval(op_type)(**new_op_info))
