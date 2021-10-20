@@ -22,6 +22,10 @@ import glob
 import paddle
 import numpy as np
 
+import time
+from threading import Thread
+from queue import Queue
+
 from paddle.vision.transforms import functional as F
 from deploy.python.preprocess import preprocess, Resize, NormalizeImage, Permute, PadStride, LetterBoxResize
 
@@ -40,79 +44,42 @@ from ppdet.utils.logger import setup_logger
 logger = setup_logger(__name__)
 
 __all__ = ['Tracker']
-class Tracker(object):
-    def __init__(self, cfg, mode='eval'):
-        self.cfg = cfg
-        assert mode.lower() in ['test', 'eval'], \
-                "mode should be 'test' or 'eval'"
-        self.mode = mode.lower()
-        self.optimizer = None
 
-        # build MOT data loader
-        self.dataset = cfg['{}MOTDataset'.format(self.mode.capitalize())]
+
+class VideoCaptureWidget(object):
+    def __init__(self, capture=None, buffer_size=20):
+        self.queue = Queue(maxsize=buffer_size)
+        self.capture = capture
         
-        self.capture = None
+        self.thread = Thread(target=self.update, args=())
+        self.thread.daemon = True
+        self.thread.start()
+        self.video_end = False
+        
         self.pred_config_preprocess_infos =  [{'target_size': [608, 1088], 'type': 'LetterBoxResize'}, 
                             {'is_scale': True, 'mean': [0, 0, 0], 'std': [1, 1, 1], 'type': 'NormalizeImage'}, {'type': 'Permute'}]
-        # build model
-        self.model = create(cfg.architecture)
 
-        self.status = {}
-        self.start_epoch = 0
+    def update(self):
+        # Read the next frame from the video in a different thread
+        while True:
+            if self.capture.isOpened() and not self.queue.full():
+                status, frame = self.capture.read()
+                if not status:
+                    self.video_end = True
+                    break
+                
+                data = self.preprocess([frame])
+                data['ori_image'] = paddle.unsqueeze(paddle.to_tensor(frame),axis=0)
+                for k in data:
+                    data[k] = paddle.to_tensor(data[k])
+                data = data
+                self.queue.put(data)
+                
+            time.sleep(.01)
 
-        # initial default callbacks
-        self._init_callbacks()
-
-        # initial default metrics
-        self._init_metrics()
-        self._reset_metrics()
-
-    def _init_callbacks(self):
-        self._callbacks = []
-        self._compose_callback = None
-
-    def _init_metrics(self):
-        if self.mode in ['test']:
-            self._metrics = []
-            return
-
-        if self.cfg.metric == 'MOT':
-            self._metrics = [MOTMetric(), ]
-        elif self.cfg.metric == 'KITTI':
-            self._metrics = [KITTIMOTMetric(), ]
-        else:
-            logger.warning("Metric not support for metric type {}".format(
-                self.cfg.metric))
-            self._metrics = []
-
-    def _reset_metrics(self):
-        for metric in self._metrics:
-            metric.reset()
-
-    def register_callbacks(self, callbacks):
-        callbacks = [h for h in list(callbacks) if h is not None]
-        for c in callbacks:
-            assert isinstance(c, Callback), \
-                    "metrics shoule be instances of subclass of Metric"
-        self._callbacks.extend(callbacks)
-        self._compose_callback = ComposeCallback(self._callbacks)
-
-    def register_metrics(self, metrics):
-        metrics = [m for m in list(metrics) if m is not None]
-        for m in metrics:
-            assert isinstance(m, Metric), \
-                    "metrics shoule be instances of subclass of Metric"
-        self._metrics.extend(metrics)
-
-    def load_weights_jde(self, weights):
-        load_weight(self.model, weights, self.optimizer)
-
-    def load_weights_sde(self, det_weights, reid_weights):
-        if self.model.detector:
-            load_weight(self.model.detector, det_weights)
-            load_weight(self.model.reid, reid_weights)
-        else:
-            load_weight(self.model.reid, reid_weights, self.optimizer)
+    def get_frame(self):
+        return None if self.queue.empty() and self.video_end else self.queue.get()
+    
     
     def decode_image(self, im_file, im_info):
         """read rgb image
@@ -201,7 +168,79 @@ class Tracker(object):
             input_im_info_lst.append(im_info)
         inputs = self.create_inputs(input_im_lst, input_im_info_lst)
         return inputs
-    
+
+class Tracker(object):
+    def __init__(self, cfg, mode='eval'):
+        self.cfg = cfg
+        assert mode.lower() in ['test', 'eval'], \
+                "mode should be 'test' or 'eval'"
+        self.mode = mode.lower()
+        self.optimizer = None
+
+        # build MOT data loader
+        self.dataset = cfg['{}MOTDataset'.format(self.mode.capitalize())]
+        
+        self.capture = None
+        # build model
+        self.model = create(cfg.architecture)
+
+        self.status = {}
+        self.start_epoch = 0
+
+        # initial default callbacks
+        self._init_callbacks()
+
+        # initial default metrics
+        self._init_metrics()
+        self._reset_metrics()
+
+    def _init_callbacks(self):
+        self._callbacks = []
+        self._compose_callback = None
+
+    def _init_metrics(self):
+        if self.mode in ['test']:
+            self._metrics = []
+            return
+
+        if self.cfg.metric == 'MOT':
+            self._metrics = [MOTMetric(), ]
+        elif self.cfg.metric == 'KITTI':
+            self._metrics = [KITTIMOTMetric(), ]
+        else:
+            logger.warning("Metric not support for metric type {}".format(
+                self.cfg.metric))
+            self._metrics = []
+
+    def _reset_metrics(self):
+        for metric in self._metrics:
+            metric.reset()
+
+    def register_callbacks(self, callbacks):
+        callbacks = [h for h in list(callbacks) if h is not None]
+        for c in callbacks:
+            assert isinstance(c, Callback), \
+                    "metrics shoule be instances of subclass of Metric"
+        self._callbacks.extend(callbacks)
+        self._compose_callback = ComposeCallback(self._callbacks)
+
+    def register_metrics(self, metrics):
+        metrics = [m for m in list(metrics) if m is not None]
+        for m in metrics:
+            assert isinstance(m, Metric), \
+                    "metrics shoule be instances of subclass of Metric"
+        self._metrics.extend(metrics)
+
+    def load_weights_jde(self, weights):
+        load_weight(self.model, weights, self.optimizer)
+
+    def load_weights_sde(self, det_weights, reid_weights):
+        if self.model.detector:
+            load_weight(self.model.detector, det_weights)
+            load_weight(self.model.reid, reid_weights)
+        else:
+            load_weight(self.model.reid, reid_weights, self.optimizer)
+            
     def _eval_seq_jde(self,
                       dataloader,
                       save_dir=None,
@@ -225,27 +264,23 @@ class Tracker(object):
             video_len = capture.get(cv2.CAP_PROP_FRAME_COUNT)
             if video_len <= 0:
                 video_len = 200000
+            vcw = VideoCaptureWidget(capture, buffer_size=50)
             logger.info("Length of the video: {} frames".format(video_len))
             
             dataloader = range(round(video_len))
         for step_id, data in enumerate(dataloader):
+            # forward
             if capture != None:
-                ret, data = capture.read()
-                if not ret:
+                # ret, data = capture.read()
+                data = vcw.get_frame()
+                if data is None:
                     logger.info("Processing video end.")
                     break
-                data_ = self.preprocess([data])
-                data_['ori_image'] = paddle.unsqueeze(paddle.to_tensor(data),axis=0)
-                for k in data_:
-                    data_[k] = paddle.to_tensor(data_[k])
-                data = data_
-                
             self.status['step_id'] = step_id
-            if frame_id % 40 == 0:
+            if frame_id % 2000 == 0:
                 logger.info('Processing frame {} ({:.2f} fps)'.format(
                     frame_id, 1. / max(1e-5, timer.average_time)))
-
-            # forward
+                
             timer.tic()
             pred_dets, pred_embs = self.model(data)
             online_targets = self.model.tracker.update(pred_dets, pred_embs)
@@ -557,8 +592,7 @@ class Tracker(object):
         video_writer = None
         if save_videos and use_capture:
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            output_video_path = os.path.join(save_dir, '..',
-                                             '{}_vis.mp4'.format(seq))
+            output_video_path = os.path.join(output_dir, '{}_vis.mp4'.format(seq))
             logger.info('Save video in {}'.format(output_video_path))
             width = int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
             height = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
