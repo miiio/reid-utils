@@ -12,6 +12,8 @@ cp run.sh PaddleDetection/
 CUDA_VISIBLE_DEVICES=0 python tools/infer_mot.py -c configs/mot/fairmot/fairmot_dla34_30e_1088x608.yml -o weights=https://paddledet.bj.bcebos.com/models/mot/fairmot_dla34_30e_1088x608.pdparams --video_file={your video name}.mp4 --frame_rate=25 --save_videos
 ```
 ```--frame_rate```表示视频的帧率，表示每秒抽取多少帧(经测试，减低帧率会对跟踪结果准确度有比较大的影响！)。
+## tracker.py
+用opencv来多线程实时加载视频和写出视频，代替原来用ffmpeg预处理生成中间图片文件的方式。
 ## Generate脚本
 可配置项
 ```python
@@ -44,4 +46,10 @@ ignore_pids = []
 min_threshold = -1                                                                    
 #最小行人框大小（也可在PaddleDetection/configs/mot/jde/jde_darknet53_30e_1088x608.yml中设置）
 min_box_area = -1                                 
+```
+
+## run.sh
+批处理运行这条命令
+```
+CUDA_VISIBLE_DEVICES=0 python tools/infer_mot.py -c configs/mot/fairmot/fairmot_dla34_30e_1088x608.yml -o weights=https://paddledet.bj.bcebos.com/models/mot/fairmot_dla34_30e_1088x608.pdparams --video_file={your video name}.mp4 --frame_rate=25 --save_videos
 ```
