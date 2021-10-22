@@ -42,6 +42,6 @@ crop_frame_interval = 25
 ignore_pids = []
 #阈值过滤
 min_threshold = -1                                                                    
-#最小行人框大小（在FairMOT中设置即可）
+#最小行人框大小（也可在PaddleDetection/configs/mot/jde/jde_darknet53_30e_1088x608.yml中设置）
 min_box_area = -1                                 
 ```
