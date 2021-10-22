@@ -1,5 +1,5 @@
 ## PaddleDetection跟踪模型
-使用原版PaddleDetection仓库的代码
+使用原版[PaddleDetection](https://github.com/PaddlePaddle/PaddleDetection/blob/release/2.2/configs/mot/README_cn.md)仓库的代码
 
 替换修改过的PaddleDetection/engine/tracker.py
 ```bash
