@@ -15,6 +15,8 @@ CUDA_VISIBLE_DEVICES=0 python tools/infer_mot.py -c configs/mot/fairmot/fairmot_
 ## tracker.py
 用opencv来多线程实时加载视频和写出视频，代替原来用ffmpeg预处理生成中间图片文件的方式。
 ## Generate脚本
+用于生成excel表格以及用来训练reid的行人图片
+
 可配置项
 ```python
 #FairMOT算法输出的outpu.txt路径
