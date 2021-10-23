@@ -1,4 +1,4 @@
-#!/bin/bas
+#!/bin/bash
 video_list=(
     /home/swjtu/dataset/20211012/D01_20211012122308.mp4
     /home/swjtu/dataset/20211012/D01_20211012133139.mp4
