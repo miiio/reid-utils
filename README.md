@@ -18,36 +18,36 @@ CUDA_VISIBLE_DEVICES=0 python tools/infer_mot.py -c configs/mot/fairmot/fairmot_
 用于生成excel表格以及用来训练reid的行人图片
 
 可配置项
-```python
-#FairMOT算法输出的outpu.txt路径
-output_txt_path = 'output/20211012/D02_20211012103524/mot_results/D02_20211012103524.txt' 
+```python#FairMOT算法输出的outpu.txt路径
+output_txt_path = 'output/20211012/D02_20211012075959/mot_results/D02_20211012075959.txt' 
 #原视频路径
-source_video_path = '/home/swjtu/dataset/20211012/D02_20211012103524.mp4' 
+source_video_path = '/home/swjtu/dataset/20211012/D02_20211012075959.mp4' 
 #裁剪图片保存目录
-save_crops_path = './output/D02_20211012103524/crops'   
+save_crops_path = './output/20211012/D02_20211012075959/crops'   
 #excel保存目录                                           
-save_excel_path = "./output/D02_20211012103524.xlsx" 
+save_excel_path = "./output/20211012/D02_20211012075959/D02_20211012075959.xlsx" 
      
 #原视频相机序号
-source_video_camera_id = 2                                                        
+source_video_camera_id = 1                                               
 #原视频片段序号(按文件名升序从1开始排列)
-source_video_seq_id = 4                                                        
+source_video_seq_id = 1                                                     
 #原视频真实起始日期时间
-source_video_start_time = "20211012103524"   
+source_video_start_time = "20211012080011"   
                                       
 #原视频帧率
 source_video_frame_rate = 25.01     
 #MOT算法检测帧率                                               
 detection_frame_rate = 25.01        
-#间隔多少帧截取一次行人图像                                               
-crop_frame_interval = 25    
+#crop同一个ID的2张图片最小帧间隔                                               
+crop_frame_interval = 10  
+  
 
 #忽略行人ID                                                       
 ignore_pids = []
 #阈值过滤
 min_threshold = -1                                                                    
-#最小行人框大小（也可在PaddleDetection/configs/mot/jde/jde_darknet53_30e_1088x608.yml中设置）
-min_box_area = -1                                 
+#最小行人框大小（在FairMOT中设置即可）
+min_box_area = 20000                                                  
 ```
 
 ## run.sh
