@@ -1,3 +1,9 @@
+## fast-reid
+借助reid模型可视化来辅助跨摄像头合并相同行人id。 
+
+例如：将D1,D2的每个id抽取3张图片作为query，D1+D2所有图片作为gallery
+
+可视化：/demo/visualize_result.py
 ## PaddleDetection跟踪模型
 使用原版[PaddleDetection](https://github.com/PaddlePaddle/PaddleDetection/blob/release/2.2/configs/mot/README_cn.md)仓库的代码
 
@@ -14,6 +20,9 @@ CUDA_VISIBLE_DEVICES=0 python tools/infer_mot.py -c configs/mot/fairmot/fairmot_
 ```--frame_rate```表示视频的帧率，表示每秒抽取多少帧(经测试，减低帧率会对跟踪结果准确度有比较大的影响！)。
 ## tracker.py
 用opencv来多线程实时加载视频和写出视频，代替原来用ffmpeg预处理生成中间图片文件的方式。
+
+## merge脚本
+根据记录的excel文件(可参考merge_D1D2.xlsx)合并相同行人的id。重新分配id并修改图片名以及excel内的id。
 ## Generate脚本
 用于生成excel表格以及用来训练reid的行人图片
 
